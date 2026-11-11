@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>로또 추첨기 — 1~45 공 뽑기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #e9eef4;
+    --bg-deep: #cfd9e4;
+    --ink: #142033;
+    --ink-soft: #4f5f75;
+    --panel: #ffffff;
+    --panel-line: #c9d3df;
+    --machine-body: #2b3446;
+    --machine-body-light: #3c4760;
+    --machine-rim: #8a97ad;
+    --glass: rgba(255,255,255,0.18);
+    --glass-edge: rgba(255,255,255,0.55);
+    --accent: #e8552b;
+    --accent-ink: #ffffff;
+    --tray: #f6f1e4;
+    --tray-line: #d8ccae;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0e1522;
+      --bg-deep: #070b13;
+      --ink: #eef2f8;
+      --ink-soft: #9aa8bd;
+      --panel: #161f30;
+      --panel-line: #2a3650;
+      --machine-body: #1c2434;
+      --machine-body-light: #2a3448;
+      --machine-rim: #6c7a92;
+      --glass: rgba(255,255,255,0.08);
+      --glass-edge: rgba(255,255,255,0.4);
+      --tray: #1f2232;
+      --tray-line: #3a3f58;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0e1522;
+    --bg-deep: #070b13;
+    --ink: #eef2f8;
+    --ink-soft: #9aa8bd;
+    --panel: #161f30;
+    --panel-line: #2a3650;
+    --machine-body: #1c2434;
+    --machine-body-light: #2a3448;
+    --machine-rim: #6c7a92;
+    --glass: rgba(255,255,255,0.08);
+    --glass-edge: rgba(255,255,255,0.4);
+    --tray: #1f2232;
+    --tray-line: #3a3f58;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    color: var(--ink);
+    background: radial-gradient(ellipse at 50% 20%, var(--bg) 0%, var(--bg-deep) 100%);
+    min-height: 100%;
+  }
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 20px 16px 48px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-family: "Jua", "Noto Sans KR", sans-serif;
+    font-weight: 400;
+    font-size: clamp(28px, 5vw, 40px);
+    letter-spacing: 0.01em;
+    margin: 0 0 4px;
+  }
+  header p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 15px;
+  }
+
+  /* ---------- machine ---------- */
+  .machine {
+    position: relative;
+    width: min(100%, 520px);
+    margin: 18px auto 0;
+  }
+  .dome {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 32% 28%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.08) 22%, rgba(255,255,255,0) 40%),
+      var(--glass);
+    box-shadow:
+      inset 0 0 0 6px var(--glass-edge),
+      inset 0 -30px 60px rgba(0,0,0,0.25),
+      0 20px 50px rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+  .dome canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+  }
+  .dome::after {
+    content: "";
+    position: absolute;
+    left: 10%; top: 6%;
+    width: 36%; height: 20%;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0));
+    transform: rotate(-20deg);
+    pointer-events: none;
+  }
+  /* exit tube at the top of the dome */
+  .tube {
+    position: absolute;
+    left: 50%;
+    top: -22px;
+    width: 72px;
+    height: 70px;
+    transform: translateX(-50%);
+    border-radius: 36px 36px 8px 8px;
+    background: linear-gradient(90deg, var(--machine-body), var(--machine-body-light) 50%, var(--machine-body));
+    box-shadow: 0 6px 14px rgba(0,0,0,0.3), inset 0 0 0 3px var(--machine-rim);
+    z-index: 2;
+  }
+  .tube::before {
+    content: "";
+    position: absolute;
+    left: 50%; top: 10px;
+    width: 40px; height: 40px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #10151f, #000 70%);
+    box-shadow: inset 0 0 0 2px #556;
+  }
+  .base {
+    position: relative;
+    margin: -40px auto 0;
+    width: 86%;
+    height: 96px;
+    border-radius: 18px 18px 28px 28px;
+    background: linear-gradient(180deg, var(--machine-body-light), var(--machine-body));
+    box-shadow: inset 0 0 0 3px var(--machine-rim), 0 14px 30px rgba(0,0,0,0.35);
+    z-index: 1;
+  }
+  .base .vents {
+    position: absolute;
+    left: 50%; top: 52px;
+    transform: translateX(-50%);
+    display: flex; gap: 8px;
+  }
+  .base .vents span {
+    width: 46px; height: 7px;
+    border-radius: 4px;
+    background: #0b0f17;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+  .lamp {
+    position: absolute;
+    right: 24px; top: 48px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #4a4f5c;
+    box-shadow: inset 0 0 0 2px #22262f;
+    transition: background .2s, box-shadow .2s;
+  }
+  .lamp.on {
+    background: #ff5d3a;
+    box-shadow: 0 0 14px #ff5d3a, inset 0 0 0 2px #7a2715;
+    animation: blink .5s infinite alternate;
+  }
+  @keyframes blink { from { opacity: 1 } to { opacity: .45 } }
+
+  .status {
+    position: absolute;
+    left: 50%; top: 14px;
+    transform: translateX(-50%);
+    font-family: "Jua", sans-serif;
+    font-size: 20px;
+    color: #ffd27a;
+    background: #0b0f17;
+    padding: 4px 18px;
+    border-radius: 8px;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    box-shadow: inset 0 0 0 2px #2d3340;
+    min-width: 220px;
+    text-align: center;
+  }
+
+  /* ---------- controls ---------- */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: "Jua", "Noto Sans KR", sans-serif;
+    font-size: 20px;
+    padding: 12px 28px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    color: var(--accent-ink);
+    background: var(--accent);
+    box-shadow: 0 6px 0 #a8381a, 0 10px 20px rgba(0,0,0,0.25);
+    transition: transform .08s, box-shadow .08s;
+  }
+  button:active { transform: translateY(4px); box-shadow: 0 2px 0 #a8381a; }
+  button:disabled {
+    cursor: not-allowed;
+    background: #8d95a3;
+    box-shadow: 0 6px 0 #5b626e;
+  }
+  button.secondary {
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: 0 6px 0 var(--panel-line), 0 10px 20px rgba(0,0,0,0.15);
+  }
+  button.secondary:active { box-shadow: 0 2px 0 var(--panel-line); }
+  button:focus-visible { outline: 3px solid #ffd27a; outline-offset: 3px; }
+
+  /* ---------- tray ---------- */
+  .tray {
+    margin: 26px auto 0;
+    width: min(100%, 640px);
+    background: var(--tray);
+    border: 2px solid var(--tray-line);
+    border-radius: 20px;
+    padding: 18px 18px 28px;
+  }
+  .tray-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .slot {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 2px dashed var(--tray-line);
+    display: grid; place-items: center;
+    position: relative;
+  }
+  .plus {
+    font-family: "Jua", sans-serif;
+    font-size: 28px;
+    color: var(--ink-soft);
+    margin: 0 4px;
+  }
+  .ball {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: "Jua", sans-serif;
+    font-size: 26px;
+    color: #1a1a1a;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+    box-shadow: inset -6px -8px 12px rgba(0,0,0,0.25), inset 5px 6px 10px rgba(255,255,255,0.55), 0 4px 8px rgba(0,0,0,0.3);
+    animation: drop .5s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes drop {
+    0%   { transform: translateY(-60px) scale(.6); opacity: 0; }
+    60%  { transform: translateY(6px) scale(1.05); opacity: 1; }
+    100% { transform: translateY(0) scale(1); }
+  }
+  .tray-label {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin-top: 10px;
+  }
+  .bonus-tag {
+    position: absolute;
+    bottom: -20px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  /* ---------- history ---------- */
+  .history {
+    margin: 26px auto 0;
+    width: min(100%, 640px);
+  }
+  .history h2 {
+    font-family: "Jua", sans-serif;
+    font-weight: 400;
+    font-size: 20px;
+    margin: 0 0 8px;
+  }
+  .history ol {
+    margin: 0; padding: 0;
+    list-style: none;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .history li {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 15px;
+    flex-wrap: wrap;
+  }
+  .history li .round {
+    width: 44px; color: var(--ink-soft); flex-shrink: 0;
+  }
+  .mini {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: "Jua", sans-serif;
+    font-size: 15px;
+    color: #1a1a1a;
+    box-shadow: inset -3px -4px 6px rgba(0,0,0,0.22), inset 2px 3px 5px rgba(255,255,255,0.5);
+  }
+  .history .empty { color: var(--ink-soft); font-size: 14px; }
+
+  .legend {
+    display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 16px;
+    margin-top: 18px; font-size: 13px; color: var(--ink-soft);
+  }
+  .legend span::before {
+    content: ""; display: inline-block;
+    width: 12px; height: 12px; border-radius: 50%;
+    margin-right: 5px; vertical-align: -1px;
+    background: var(--c);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ball { animation: none; }
+    .lamp.on { animation: none; }
+  }
+  @media (max-width: 480px) {
+    .slot { width: 50px; height: 50px; }
+    .ball { width: 46px; height: 46px; font-size: 21px; }
+    .plus { font-size: 22px; }
+    .status { font-size: 16px; min-width: 180px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>로또 추첨기</h1>
+    <p>1번부터 45번 공 중에서 겹치지 않게 6개, 그리고 보너스 공 1개를 뽑습니다.</p>
+  </header>
+
+  <div class="machine">
+    <div class="tube" aria-hidden="true"></div>
+    <div class="dome">
+      <canvas id="cv" aria-label="공이 섞이는 추첨기 화면"></canvas>
+    </div>
+    <div class="base">
+      <div class="status" id="status">추첨 대기 중</div>
+      <div class="lamp" id="lamp"></div>
+      <div class="vents"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="btnDraw">추첨 시작</button>
+    <button id="btnReset" class="secondary" disabled>공 다시 넣기</button>
+  </div>
+
+  <div class="tray" aria-live="polite">
+    <div class="tray-row" id="trayRow">
+      <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+      <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+      <div class="plus">+</div>
+      <div class="slot" id="bonusSlot"><span class="bonus-tag">보너스</span></div>
+    </div>
+  </div>
+
+  <div class="history">
+    <h2>추첨 기록</h2>
+    <ol id="historyList"><li class="empty">아직 추첨한 기록이 없습니다.</li></ol>
+  </div>
+
+  <div class="legend">
+    <span style="--c:#FBC400">1~10</span>
+    <span style="--c:#69C8F2">11~20</span>
+    <span style="--c:#FF7272">21~30</span>
+    <span style="--c:#AAAAAA">31~40</span>
+    <span style="--c:#B0D840">41~45</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- ball colors (실제 로또 공 색 구분과 같게) ----
+  function colorOf(n) {
+    if (n <= 10) return '#FBC400';
+    if (n <= 20) return '#69C8F2';
+    if (n <= 30) return '#FF7272';
+    if (n <= 40) return '#AAAAAA';
+    return '#B0D840';
+  }
+
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+  const lamp = document.getElementById('lamp');
+  const btnDraw = document.getElementById('btnDraw');
+  const btnReset = document.getElementById('btnReset');
+  const trayRow = document.getElementById('trayRow');
+  const bonusSlot = document.getElementById('bonusSlot');
+  const historyList = document.getElementById('historyList');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- world ----
+  const W = 600;            // logical size
+  const CX = W / 2, CY = W / 2;
+  const R = W / 2 - 10;     // inner dome radius
+  const BR = 21;            // ball radius
+  const EXIT = { x: CX, y: CY - R + BR + 2 };
+
+  let balls = [];
+  let mode = 'idle';        // idle | mixing | pulling | done
+  let airPower = 0;
+  let pulling = null;       // ball being pulled to the exit
+  let round = 0;
+  let drawn = [];
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / W, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+
+  function fillBalls() {
+    balls = [];
+    const order = [];
+    for (let i = 1; i <= 45; i++) order.push(i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    // 아래쪽에 겹치지 않게 쌓기
+    let placed = 0;
+    for (let row = 0; placed < 45; row++) {
+      const y = CY + R - BR - 3 - row * (BR * 1.75);
+      const halfWidth = Math.sqrt(Math.max(0, (R - BR - 3) ** 2 - (y - CY) ** 2));
+      const count = Math.max(1, Math.floor((halfWidth * 2) / (BR * 2.05)));
+      for (let k = 0; k < count && placed < 45; k++) {
+        const x = CX - halfWidth + BR + k * (BR * 2.05) + (row % 2 ? BR : 0);
+        if (x + BR > CX + halfWidth) break;
+        balls.push({ n: order[placed++], x, y, vx: 0, vy: 0, spin: Math.random() * Math.PI * 2, vs: 0 });
+      }
+    }
+  }
+
+  // ---- physics ----
+  function step(dt) {
+    const g = 1400;
+    for (const b of balls) {
+      // 바람(공기 주입): 바닥 쪽에서 위로 밀어 올림
+      if (airPower > 0) {
+        const depth = (b.y - CY) / R; // -1(위) ~ 1(아래)
+        if (depth > -0.2) {
+          const jet = airPower * (0.4 + depth) * (0.6 + Math.random() * 0.9);
+          b.vy -= jet * dt;
+          b.vx += (Math.random() - 0.5) * airPower * 0.9 * dt;
+        }
+      }
+      b.vy += g * dt;
+      if (pulling === b) {
+        // 출구로 끌어올리기
+        const dx = EXIT.x - b.x, dy = EXIT.y - b.y;
+        const d = Math.hypot(dx, dy) || 1;
+        b.vx += (dx / d) * 5200 * dt - b.vx * 3 * dt;
+        b.vy += (dy / d) * 5200 * dt - g * dt - b.vy * 3 * dt;
+      }
+      b.vx *= 0.995; b.vy *= 0.995;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      b.spin += b.vs * dt; b.vs *= 0.98;
+
+      // 유리 벽
+      const dx = b.x - CX, dy = b.y - CY;
+      const d = Math.hypot(dx, dy);
+      if (d > R - BR) {
+        const nx = dx / d, ny = dy / d;
+        b.x = CX + nx * (R - BR); b.y = CY + ny * (R - BR);
+        const vn = b.vx * nx + b.vy * ny;
+        if (vn > 0) {
+          b.vx -= (1 + 0.55) * vn * nx;
+          b.vy -= (1 + 0.55) * vn * ny;
+          b.vs += (b.vx * ny - b.vy * nx) * 0.004;
+        }
+        // 바닥 마찰
+        b.vx *= 0.985;
+      }
+    }
+    // 공끼리 충돌
+    for (let i = 0; i < balls.length; i++) {
+      const a = balls[i];
+      for (let j = i + 1; j < balls.length; j++) {
+        const b = balls[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d2 = dx * dx + dy * dy;
+        const min = BR * 2;
+        if (d2 < min * min && d2 > 0.0001) {
+          const d = Math.sqrt(d2);
+          const nx = dx / d, ny = dy / d;
+          const overlap = (min - d) / 2;
+          a.x -= nx * overlap; a.y -= ny * overlap;
+          b.x += nx * overlap; b.y += ny * overlap;
+          const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+          const vn = rvx * nx + rvy * ny;
+          if (vn < 0) {
+            const imp = -(1 + 0.6) * vn / 2;
+            a.vx -= imp * nx; a.vy -= imp * ny;
+            b.vx += imp * nx; b.vy += imp * ny;
+            a.vs += (Math.random() - 0.5) * 2; b.vs += (Math.random() - 0.5) * 2;
+          }
+        }
+      }
+    }
+  }
+
+  // ---- drawing ----
+  function drawBall(b) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    const col = colorOf(b.n);
+    const grad = ctx.createRadialGradient(-BR * 0.35, -BR * 0.4, BR * 0.1, 0, 0, BR);
+    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    grad.addColorStop(0.25, col);
+    grad.addColorStop(1, shade(col, -0.35));
+    ctx.beginPath(); ctx.arc(0, 0, BR, 0, Math.PI * 2);
+    ctx.fillStyle = grad; ctx.fill();
+    // 숫자(약간 흔들리는 느낌으로 회전)
+    ctx.rotate(Math.sin(b.spin) * 0.25);
+    ctx.fillStyle = '#1b1b1b';
+    ctx.font = 'bold 19px "Jua", "Noto Sans KR", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(b.n), 0, 1);
+    ctx.restore();
+  }
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    r = Math.round(r * (1 + amt)); g = Math.round(g * (1 + amt)); b = Math.round(b * (1 + amt));
+    return `rgb(${Math.max(0,r)},${Math.max(0,g)},${Math.max(0,b)})`;
+  }
+  function render() {
+    ctx.clearRect(0, 0, W, W);
+    // 출구 구멍
+    ctx.beginPath(); ctx.arc(EXIT.x, EXIT.y - BR - 6, 30, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+    // 공기 흐름 표시
+    if (airPower > 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2;
+      for (let i = -3; i <= 3; i++) {
+        const x = CX + i * 36 + (Math.random() - 0.5) * 6;
+        ctx.beginPath(); ctx.moveTo(x, CY + R - 10);
+        ctx.lineTo(x + (Math.random() - 0.5) * 20, CY + R - 60 - Math.random() * 40);
+        ctx.stroke();
+      }
+    }
+    for (const b of balls) drawBall(b);
+  }
+
+  // ---- loop ----
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.033, (now - last) / 1000); last = now;
+    const sub = 3;
+    for (let i = 0; i < sub; i++) step(dt / sub);
+    if (pulling && Math.hypot(pulling.x - EXIT.x, pulling.y - EXIT.y) < 8) {
+      const b = pulling; pulling = null;
+      balls = balls.filter(x => x !== b);
+      onBallOut(b.n);
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // ---- draw sequence ----
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let resolveOut = null;
+  function onBallOut(n) { if (resolveOut) { const r = resolveOut; resolveOut = null; r(n); } }
+
+  function pullOne() {
+    return new Promise(res => {
+      resolveOut = res;
+      pulling = balls[Math.floor(Math.random() * balls.length)];
+    });
+  }
+
+  function addTrayBall(n, slot, isBonus) {
+    const el = document.createElement('div');
+    el.className = 'ball';
+    el.style.background = colorOf(n);
+    el.textContent = n;
+    el.setAttribute('aria-label', (isBonus ? '보너스 ' : '') + n + '번');
+    slot.appendChild(el);
+  }
+
+  // 버튼을 누를 때마다 공 하나씩: 1~6번째는 본 번호, 7번째는 보너스
+  async function drawNext() {
+    if (mode !== 'idle' && mode !== 'waiting') return;
+    const slots = Array.from(trayRow.querySelectorAll('.slot')).slice(0, 6);
+    const idx = drawn.length;            // 지금까지 뽑은 개수
+    const isBonus = idx === 6;
+
+    mode = 'pulling';
+    btnDraw.disabled = true; btnReset.disabled = true;
+    lamp.classList.add('on');
+
+    if (idx === 0) {
+      statusEl.textContent = '공 섞는 중…';
+      airPower = reduceMotion ? 2200 : 3600;
+      await sleep(reduceMotion ? 1000 : 2200);
+    } else {
+      airPower = 3000;
+      await sleep(reduceMotion ? 400 : 900);
+    }
+
+    statusEl.textContent = isBonus ? '보너스 공 뽑는 중' : `${idx + 1}번째 공 뽑는 중`;
+    airPower = 2600;
+    const n = await pullOne();
+    airPower = 0;
+    lamp.classList.remove('on');
+
+    if (isBonus) {
+      addTrayBall(n, bonusSlot, true);
+      statusEl.textContent = `보너스 공: ${n}번 — 추첨 완료`;
+      round++;
+      addHistory(round, drawn.slice().sort((a, b) => a - b), n);
+      mode = 'done';
+      btnDraw.textContent = '추첨 완료';
+      btnReset.disabled = false;
+    } else {
+      drawn.push(n);
+      addTrayBall(n, slots[idx], false);
+      statusEl.textContent = `${idx + 1}번째 공: ${n}번`;
+      mode = 'waiting';
+      btnDraw.textContent = drawn.length === 6 ? '보너스 공 뽑기' : '다음 공 뽑기';
+      btnDraw.disabled = false;
+      btnReset.disabled = false;
+    }
+  }
+
+  function addHistory(r, sorted, bonus) {
+    const empty = historyList.querySelector('.empty');
+    if (empty) empty.remove();
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.className = 'round'; span.textContent = r + '회';
+    li.appendChild(span);
+    sorted.forEach(n => li.appendChild(mini(n)));
+    const plus = document.createElement('span'); plus.textContent = '+'; plus.style.margin = '0 4px'; plus.style.color = 'var(--ink-soft)';
+    li.appendChild(plus);
+    li.appendChild(mini(bonus));
+    historyList.prepend(li);
+  }
+  function mini(n) {
+    const m = document.createElement('span');
+    m.className = 'mini'; m.style.background = colorOf(n); m.textContent = n;
+    return m;
+  }
+
+  function reset() {
+    if (mode === 'pulling') return;
+    trayRow.querySelectorAll('.ball').forEach(b => b.remove());
+    statusEl.textContent = '추첨 대기 중';
+    drawn = [];
+    fillBalls();
+    mode = 'idle';
+    btnDraw.textContent = '추첨 시작';
+    btnDraw.disabled = false; btnReset.disabled = true;
+  }
+
+  btnDraw.addEventListener('click', drawNext);
+  btnReset.addEventListener('click', reset);
+
+  resize();
+  fillBalls();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
